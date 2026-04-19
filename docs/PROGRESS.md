@@ -9,8 +9,9 @@
 | 1. Scaffolding | 2026-04-19 | `chore: scaffolding initial` | \u2705 |
 | 2. Gestion des secrets | 2026-04-19 | `feat: gestion des secrets` | \u2705 |
 | 3. Domaine et abstractions | 2026-04-19 | `feat: domaine et abstractions` | \u2705 |
-| 4. Client Notion bas niveau | | `feat: client Notion bas niveau` | \u23f3 prochain |
-| 5\u201315 | | | |
+| 4. Client Notion bas niveau | 2026-04-19 | `feat: client Notion bas niveau` | \u2705 |
+| 5. Mapping Notion | | `feat: mapping Notion` | \u23f3 prochain |
+| 6\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -104,5 +105,32 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 4)
 
-- `NotionApiClient` (HttpClient typ\u00e9, `HttpMessageHandler` injectable, Polly retry, pagination).
-- Tests sur handler factice.
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 4 \u2014 Client Notion bas niveau (2026-04-19)
+
+### Livrables
+
+- `Dashboard.Data/Notion/NotionOptions.cs` \u2014 options li\u00e9es \u00e0 la section `Notion` d'`IConfiguration` (`BaseAddress`, `NotionVersion`).
+- `Dashboard.Data/Notion/NotionPage.cs` \u2014 DTO typ\u00e9 au niveau enveloppe (`Id`, `CreatedTime`, `LastEditedTime`, `Archived`) + dictionnaire brut `Properties : IReadOnlyDictionary<string, JsonElement>` ; l'interpr\u00e9tation des types de propri\u00e9t\u00e9s est le travail du Lot 5.
+- `Dashboard.Data/Notion/NotionQueryResponse.cs` \u2014 DTO de r\u00e9ponse (`Results`, `NextCursor`, `HasMore`).
+- `Dashboard.Data/Notion/NotionAuthenticationHandler.cs` \u2014 `DelegatingHandler` qui injecte `Authorization: Bearer {token}` via `ITokenProvider` (relu \u00e0 chaque requ\u00eate, supporte la rotation) et l'en-t\u00eate `Notion-Version`.
+- `Dashboard.Data/Notion/NotionApiClient.cs` \u2014 HttpClient typ\u00e9. M\u00e9thode bas niveau `QueryDataSourceOneBatchAsync(dataSourceId, startCursor)` + m\u00e9thode haut niveau `QueryDataSourceAsync(dataSourceId)` en `IAsyncEnumerable<NotionPage>` qui itère jusqu'\u00e0 `HasMore = false`.
+- `Dashboard.Data/Notion/NotionServiceCollectionExtensions.cs` \u2014 extension `AddNotionClient(IServiceCollection, IConfiguration)` : `Configure<NotionOptions>`, enregistrement du handler, `AddHttpClient<NotionApiClient>` avec `AddStandardResilienceHandler` (timeout + retry avec backoff+jitter + circuit breaker, fourni par `Microsoft.Extensions.Http.Resilience`).
+- `Directory.Packages.props` + `Dashboard.Data.csproj` : ajout de `Microsoft.Extensions.Http.Resilience` 10.0.0 et `Microsoft.Extensions.Options` 10.0.0.
+- Tests unitaires `Dashboard.Data.Tests/Notion/` :
+  - `FakeHttpMessageHandler` utilitaire.
+  - `NotionAuthenticationHandlerTests` (3 tests) : ajout des headers quand token pr\u00e9sent ; pas d'`Authorization` si token vide ; relecture du token \u00e0 chaque requ\u00eate.
+  - `NotionApiClientTests` (4 tests) : POST sans cursor + d\u00e9s\u00e9rialisation ; POST avec `start_cursor` ; it\u00e9ration multi-batches (3 pages), v\u00e9rification des cursors propag\u00e9s ; `HttpRequestException` si status non 2xx.
+
+### Choix assum\u00e9s
+
+1. **Endpoint `databases/{id}/query` + version `2022-06-28`**. Les UUIDs fournis dans `CLAUDE.md` sont nomm\u00e9s "data sources" mais leur origine exacte (database id vs. data source id API r\u00e9cente) n'est pas connue. Configuration centralis\u00e9e dans `NotionOptions` : bascule triviale au Lot 5 si un appel r\u00e9el \u00e9choue.
+2. **Propri\u00e9t\u00e9s en `JsonElement`** dans `NotionPage` plut\u00f4t qu'en DTO exhaustifs par type. La surface API Notion pour les propri\u00e9t\u00e9s est tr\u00e8s large (title, rich_text, date, number, select, status, checkbox, people, files\u2026) et chaque data source n'utilise qu'un petit sous-ensemble. Le mapping typ\u00e9 se fera au Lot 5, cibl\u00e9 sur les 4 data sources r\u00e9elles.
+3. **Retry Polly via `AddStandardResilienceHandler`** (d\u00e9fauts MS) plut\u00f4t qu'une politique custom. Gagne timeouts, retry, circuit breaker "gratuitement". Tests d'int\u00e9gration du retry non inclus : la politique est fournie et test\u00e9e par Microsoft.
+4. **Aucune interface `INotionClient` ou `INotionService`** introduite \u00e0 ce lot (cf. d\u00e9cision du Lot 3). `NotionApiClient` est utilis\u00e9 directement ; une interface sera ajout\u00e9e au Lot 5 si le mapping service l'exige.
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 5)
+
+- Mapping `NotionPage` \u2192 records de domaine (`TodoItem`, `JobApplication`, `JournalEntry`, `HealthReading`) via un service `NotionService` + tests par fixture JSON.
+- V\u00e9rifier le choix endpoint/version via un appel r\u00e9el (hors CI).
