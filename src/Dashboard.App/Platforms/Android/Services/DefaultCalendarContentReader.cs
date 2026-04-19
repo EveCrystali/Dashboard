@@ -9,49 +9,67 @@ namespace Dashboard.App.Platforms.Android.Services;
 /// non testable (ContentResolver, ICursor à index colonnes) est isolé ici ;
 /// la logique métier est dans <c>AndroidCalendarService</c> (pure C#).
 /// </summary>
+/// <remarks>
+/// Les noms de colonnes sont passés en littéraux (API publique documentée et
+/// stable de <c>CalendarContract</c>) plutôt que via les constantes de binding
+/// <c>InterfaceConsts</c>, dont la nomenclature varie entre versions du
+/// binding .NET for Android. Les valeurs correspondent aux constantes Java
+/// officielles (<c>CALENDAR_DISPLAY_NAME</c>, <c>ALL_DAY</c>, etc.).
+/// </remarks>
 internal sealed class DefaultCalendarContentReader : ICalendarContentReader
 {
+    private const string ColId = "_id";
+    private const string ColCalendarDisplayName = "calendar_displayName";
+    private const string ColAccountName = "account_name";
+    private const string ColCalendarColor = "calendar_color";
+    private const string ColVisible = "visible";
+
+    private const string ColEventId = "event_id";
+    private const string ColCalendarId = "calendar_id";
+    private const string ColTitle = "title";
+    private const string ColBegin = "begin";
+    private const string ColEnd = "end";
+    private const string ColAllDay = "allDay";
+    private const string ColEventTimezone = "eventTimezone";
+
     private static readonly string[] CalendarsProjection =
     {
-        BaseColumns.Id!,
-        CalendarContract.Calendars.InterfaceConsts.CalendarDisplayName!,
-        CalendarContract.Calendars.InterfaceConsts.AccountName!,
-        CalendarContract.Calendars.InterfaceConsts.CalendarColor!,
-        CalendarContract.Calendars.InterfaceConsts.Visible!,
+        ColId,
+        ColCalendarDisplayName,
+        ColAccountName,
+        ColCalendarColor,
+        ColVisible,
     };
 
     private static readonly string[] InstancesProjection =
     {
-        CalendarContract.Instances.EventId!,
-        CalendarContract.Instances.InterfaceConsts.CalendarId!,
-        CalendarContract.Instances.InterfaceConsts.Title!,
-        CalendarContract.Instances.Begin!,
-        CalendarContract.Instances.End!,
-        CalendarContract.Instances.InterfaceConsts.AllDay!,
-        CalendarContract.Instances.InterfaceConsts.EventTimezone!,
+        ColEventId,
+        ColCalendarId,
+        ColTitle,
+        ColBegin,
+        ColEnd,
+        ColAllDay,
+        ColEventTimezone,
     };
 
     public IEnumerable<RawCalendarRow> ReadCalendars()
     {
         var resolver = global::Android.App.Application.Context.ContentResolver
             ?? throw new InvalidOperationException("ContentResolver indisponible.");
+        var uri = CalendarContract.Calendars.ContentUri
+            ?? throw new InvalidOperationException("CalendarContract.Calendars.ContentUri null.");
 
-        using var cursor = resolver.Query(
-            CalendarContract.Calendars.ContentUri!,
-            CalendarsProjection,
-            $"{CalendarContract.Calendars.InterfaceConsts.Visible}=1",
-            null,
-            null);
+        using var cursor = resolver.Query(uri, CalendarsProjection, $"{ColVisible}=1", null, null);
         if (cursor is null)
         {
             yield break;
         }
 
-        var idIdx = cursor.GetColumnIndexOrThrow(BaseColumns.Id!);
-        var nameIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Calendars.InterfaceConsts.CalendarDisplayName!);
-        var accountIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Calendars.InterfaceConsts.AccountName!);
-        var colorIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Calendars.InterfaceConsts.CalendarColor!);
-        var visibleIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Calendars.InterfaceConsts.Visible!);
+        var idIdx = cursor.GetColumnIndexOrThrow(ColId);
+        var nameIdx = cursor.GetColumnIndexOrThrow(ColCalendarDisplayName);
+        var accountIdx = cursor.GetColumnIndexOrThrow(ColAccountName);
+        var colorIdx = cursor.GetColumnIndexOrThrow(ColCalendarColor);
+        var visibleIdx = cursor.GetColumnIndexOrThrow(ColVisible);
 
         while (cursor.MoveToNext())
         {
@@ -69,12 +87,14 @@ internal sealed class DefaultCalendarContentReader : ICalendarContentReader
         var resolver = global::Android.App.Application.Context.ContentResolver
             ?? throw new InvalidOperationException("ContentResolver indisponible.");
 
-        var builder = CalendarContract.Instances.ContentUri!.BuildUpon()
-            ?? throw new InvalidOperationException("Impossible de construire l'URI Instances.");
+        var baseUri = CalendarContract.Instances.ContentUri
+            ?? throw new InvalidOperationException("CalendarContract.Instances.ContentUri null.");
+        var builder = baseUri.BuildUpon()
+            ?? throw new InvalidOperationException("Uri.BuildUpon a retourné null.");
         ContentUris.AppendId(builder, from.ToUnixTimeMilliseconds());
         ContentUris.AppendId(builder, to.ToUnixTimeMilliseconds());
         var uri = builder.Build()
-            ?? throw new InvalidOperationException("Impossible de construire l'URI Instances.");
+            ?? throw new InvalidOperationException("Uri.Build a retourné null.");
 
         using var cursor = resolver.Query(uri, InstancesProjection, null, null, null);
         if (cursor is null)
@@ -82,13 +102,13 @@ internal sealed class DefaultCalendarContentReader : ICalendarContentReader
             yield break;
         }
 
-        var eventIdIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.EventId!);
-        var calendarIdIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.InterfaceConsts.CalendarId!);
-        var titleIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.InterfaceConsts.Title!);
-        var beginIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.Begin!);
-        var endIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.End!);
-        var allDayIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.InterfaceConsts.AllDay!);
-        var tzIdx = cursor.GetColumnIndexOrThrow(CalendarContract.Instances.InterfaceConsts.EventTimezone!);
+        var eventIdIdx = cursor.GetColumnIndexOrThrow(ColEventId);
+        var calendarIdIdx = cursor.GetColumnIndexOrThrow(ColCalendarId);
+        var titleIdx = cursor.GetColumnIndexOrThrow(ColTitle);
+        var beginIdx = cursor.GetColumnIndexOrThrow(ColBegin);
+        var endIdx = cursor.GetColumnIndexOrThrow(ColEnd);
+        var allDayIdx = cursor.GetColumnIndexOrThrow(ColAllDay);
+        var tzIdx = cursor.GetColumnIndexOrThrow(ColEventTimezone);
 
         while (cursor.MoveToNext())
         {
