@@ -2,6 +2,9 @@ namespace Dashboard.Core.Domain;
 
 public sealed record JournalEntry(
     string Id,
-    DateTimeOffset Date,
     string Title,
-    string Content);
+    DateRange? Date,
+    JournalType? Type,
+    IReadOnlyList<JournalDomain> Domains,
+    JournalSource? Source,
+    DateTimeOffset CreatedTime);

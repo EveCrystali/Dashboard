@@ -25,4 +25,10 @@
     <ProjectReference Include="..\..\src\Dashboard.Core\Dashboard.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Notion/Fixtures/*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -132,5 +132,42 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 5)
 
-- Mapping `NotionPage` \u2192 records de domaine (`TodoItem`, `JobApplication`, `JournalEntry`, `HealthReading`) via un service `NotionService` + tests par fixture JSON.
-- V\u00e9rifier le choix endpoint/version via un appel r\u00e9el (hors CI).
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 5 \u2014 Mapping Notion (2026-04-19)
+
+### Livrables
+
+- **Domaine enrichi** (`Dashboard.Core/Domain/`) :
+  - `DateRange` (record `Start`, `End`, `IsDateTime`) pour repr\u00e9senter les dates Notion (date simple, datetime, plage).
+  - `TodoItem`, `JobApplication`, `JournalEntry`, `HealthReading` r\u00e9\u00e9crits avec les champs r\u00e9els des 4 bases Notion.
+  - Enums : `TodoStatus`/`TodoPriority`/`TodoTag` ; `JobAppStatus`/`JobPosition`/`CompanyType`/`JobInterest`/`ContactMethod` ; `JournalType`/`JournalDomain`/`JournalSource` ; `HealthEntryType`/`HealthVerdict`/`HealthSource`/`ExerciseType`.
+  - `HealthDailySnapshot` + `HealthAlert` : projection agr\u00e9g\u00e9e pour le widget Sant\u00e9 (production diff\u00e9r\u00e9e \u00e0 un lot ult\u00e9rieur).
+- **Abstraction de lecture bas niveau** (`Dashboard.Core/Notion/`) :
+  - `INotionPropertyReader` + impl `NotionPropertyReader` : `AsTitle`, `AsRichText`, `AsDate`, `AsSelect`, `AsStatus`, `AsMultiSelect`, `AsNumber`, `AsCheckbox`, `AsRelation`, `AsPeople`, `AsUrl`, `AsFiles`. Tol\u00e9rant aux formes absentes / null.
+  - `NotionPropertyExtensions` : helpers d'extension sur `IReadOnlyDictionary<string, JsonElement>` (cl\u00e9 absente \u2192 valeur par d\u00e9faut, jamais d'exception).
+  - `NotionPage` et `NotionQueryResponse` **d\u00e9plac\u00e9s** de `Dashboard.Data.Notion` vers `Dashboard.Core.Notion` pour que les mappers Core puissent les consommer sans d\u00e9pendance HTTP.
+- **Mappers statiques** (`Dashboard.Core/Notion/Mappers/`) : `TodoMapper`, `JobApplicationMapper`, `JournalEntryMapper`, `HealthReadingMapper`. Noms de colonnes Notion expos\u00e9s en `const` publiques (`ColumnTitle`, etc.). Dictionnaires statiques pour la correspondance valeurs Notion (avec emojis et apostrophes typographiques exacts) \u2194 enums C#.
+- **Orchestrateur haut niveau** (`Dashboard.Data/Notion/NotionService.cs`) : 4 m\u00e9thodes `IAsyncEnumerable<T> Get*Async()` qui enchaînent `NotionApiClient.QueryDataSourceAsync(...)` + le mapper ad\u00e9quat.
+- **Options enrichies** : `NotionOptions.DataSources` (`NotionDataSources` avec les 4 UUIDs par d\u00e9faut, override possible via configuration).
+- **DI** : `AddNotionClient` enregistre en plus `INotionPropertyReader` (singleton) et `NotionService` (singleton).
+- **Tests** :
+  - `Dashboard.Core.Tests/Notion/NotionPropertyReaderTests.cs` : 20 tests unitaires (JSON inline) couvrant tous les types Notion, y compris les cas limites (array vide, `null` explicite, date simple vs datetime, plage).
+  - `Dashboard.Core.Tests/Notion/Mappers/` : un test par mapper utilisant des fixtures JSON r\u00e9alistes dans `Notion/Fixtures/` (`todo-page.json`, `job-application-page.json`, `journal-entry-page.json`, `health-reading-page.json`, copi\u00e9es en output via `CopyToOutputDirectory`).
+  - `Dashboard.Core.Tests/Notion/Mappers/TodoMapperTests.cs` : tol\u00e9rance aux statuts et tags inconnus.
+  - `Dashboard.Data.Tests/Notion/NotionServiceTests.cs` : v\u00e9rifie que chaque m\u00e9thode cible le bon data source ID via l'URL appel\u00e9e.
+
+### Choix assum\u00e9s
+
+1. **`TaskStatus` renomm\u00e9 `TodoStatus`** (et `TaskPriority` \u2192 `TodoPriority`, `TaskTag` \u2192 `TodoTag`). Collision avec `System.Threading.Tasks.TaskStatus` import\u00e9 via `ImplicitUsings`. Le pr\u00e9fixe `Todo*` est coh\u00e9rent avec `TodoItem` et \u00e9vite un `using` qualifiant dans tout le code.
+2. **`NotionPage` / `NotionQueryResponse` d\u00e9plac\u00e9s de Data vers Core** pour \u00e9viter que `Dashboard.Core` d\u00e9pende de `Dashboard.Data` (cycle). Les DTOs sont des structures de donn\u00e9es neutres, sans d\u00e9pendance HTTP.
+3. **Valeurs d'enums inconnues tol\u00e9r\u00e9es \u00e0 la lecture** : si une option select/status/multi_select n'est pas dans le dictionnaire, elle est ignor\u00e9e (multi) ou renvoy\u00e9e `null` (select). Le mapper ne jette pas : \u00e9vite les crashes quand une nouvelle option est ajout\u00e9e c\u00f4t\u00e9 Notion en cours de journ\u00e9e. Contrepartie : un log est \u00e0 ajouter au Lot 7 (sync orchestrator) pour alerter Antoine.
+4. **Fallback `TodoStatus.Tache`** quand le statut lu est absent ou inconnu (tests couvrent ce cas). Pour les autres enums principaux (`JobAppStatus`), fallback `PretAPostuler`. D\u00e9cision arbitraire mais non bloquante ; ajustable si Antoine pr\u00e9f\u00e8re nullable partout.
+5. **Helpers `MapEnum` / `MapEnumNullable` / `MapMulti` dupliqu\u00e9s dans 3 mappers**. Facturer une factorisation interne (par ex. dans `NotionPropertyExtensions`) coûterait plus en lisibilit\u00e9 qu'elle ne rapporte : 10 lignes \u00d7 3 fichiers, signature clairement locale.
+6. **Apostrophes typographiques (U+2019) obligatoires** dans `TodoMapper` (« Date d\u2019\u00e9ch\u00e9ance », « R\u00e9sum\u00e9 g\u00e9n\u00e9r\u00e9 par l\u2019IA ») vs apostrophe droite (U+0027) dans `JobApplicationMapper` (« Date d'\u00e9ch\u00e9ance »). Caract\u00e8res pr\u00e9serv\u00e9s via \u00e9chappements `\u2019` pour \u00e9viter tout doute visuel.
+7. **`ParentUrl` et `SubtaskUrls` stockent des IDs Notion bruts** (r\u00e9sultat de `relation.id`). Le nommage « Url » vient du sch\u00e9ma Notion d'Antoine ; la transformation ID \u2192 URL Notion (`https://www.notion.so/{id-sans-tiret}`) est pr\u00e9sum\u00e9e UI, pas domaine.
+8. **`HealthDailySnapshot` cr\u00e9\u00e9 mais pas produit** \u00e0 ce lot. L'agr\u00e9gation (prendre la derni\u00e8re `Sommeil`, la derni\u00e8re `Poids`, calculer les alertes) sera faite au Lot 6 ou 11 selon le besoin UI.
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 6)
+
+- EF Core `AppDbContext` + migrations initiales + repositories pour les 4 records + tests SQLite in-memory.

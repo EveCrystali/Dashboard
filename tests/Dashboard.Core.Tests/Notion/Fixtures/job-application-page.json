@@ -1,0 +1,95 @@
+{
+  "object": "page",
+  "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "created_time": "2026-04-10T09:00:00.000Z",
+  "last_edited_time": "2026-04-15T14:00:00.000Z",
+  "archived": false,
+  "properties": {
+    "Entreprise": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        { "type": "text", "text": { "content": "Acme Corp", "link": null }, "plain_text": "Acme Corp", "href": null }
+      ]
+    },
+    "Etat": {
+      "id": "etat",
+      "type": "status",
+      "status": { "id": "s1", "name": "Candidature envoy\u00e9e", "color": "blue" }
+    },
+    "Poste": {
+      "id": "poste",
+      "type": "multi_select",
+      "multi_select": [
+        { "id": "p1", "name": "Dev C#/.NET", "color": "default" },
+        { "id": "p2", "name": "Dev FullStack C#/Angular", "color": "blue" }
+      ]
+    },
+    "Type": {
+      "id": "type",
+      "type": "multi_select",
+      "multi_select": [
+        { "id": "t1", "name": "ESN", "color": "default" }
+      ]
+    },
+    "Int\u00e9r\u00eat": {
+      "id": "int",
+      "type": "select",
+      "select": { "id": "i1", "name": "Haute", "color": "red" }
+    },
+    "M\u00e9thode de contact": {
+      "id": "mc",
+      "type": "multi_select",
+      "multi_select": [
+        { "id": "m1", "name": "LinkedIn", "color": "blue" },
+        { "id": "m2", "name": "Mail", "color": "default" }
+      ]
+    },
+    "Contact": {
+      "id": "c",
+      "type": "rich_text",
+      "rich_text": [
+        { "type": "text", "text": { "content": "Jean Dupont, CTO", "link": null }, "plain_text": "Jean Dupont, CTO", "href": null }
+      ]
+    },
+    "Date de contact": {
+      "id": "dc",
+      "type": "date",
+      "date": { "start": "2026-04-10", "end": null, "time_zone": null }
+    },
+    "Date d'\u00e9ch\u00e9ance": {
+      "id": "de",
+      "type": "date",
+      "date": { "start": "2026-04-25", "end": null, "time_zone": null }
+    },
+    "Date de relance": {
+      "id": "dr",
+      "type": "date",
+      "date": null
+    },
+    "URL": {
+      "id": "url",
+      "type": "url",
+      "url": "https://acme.example.com/careers/dev-dotnet"
+    },
+    "CV": {
+      "id": "cv",
+      "type": "files",
+      "files": [
+        { "name": "cv-antoine-2026.pdf", "type": "file", "file": { "url": "https://files.notion.so/cv.pdf" } }
+      ]
+    },
+    "Lettre de motivation": {
+      "id": "lm",
+      "type": "files",
+      "files": []
+    },
+    "R\u00e9sum\u00e9 g\u00e9n\u00e9r\u00e9 par IA": {
+      "id": "ai",
+      "type": "rich_text",
+      "rich_text": [
+        { "type": "text", "text": { "content": "Poste aligné, rémunération à vérifier.", "link": null }, "plain_text": "Poste aligné, rémunération à vérifier.", "href": null }
+      ]
+    }
+  }
+}

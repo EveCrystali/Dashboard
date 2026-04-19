@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Dashboard.Core.Notion;
 using Dashboard.Data.Notion;
 
 namespace Dashboard.Data.Tests.Notion;

@@ -1,0 +1,73 @@
+{
+  "object": "page",
+  "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "created_time": "2026-04-15T10:00:00.000Z",
+  "last_edited_time": "2026-04-16T12:00:00.000Z",
+  "archived": false,
+  "properties": {
+    "Nom": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        { "type": "text", "text": { "content": "Finir le Lot 5", "link": null }, "plain_text": "Finir le Lot 5", "href": null }
+      ]
+    },
+    "État": {
+      "id": "status",
+      "type": "status",
+      "status": { "id": "s1", "name": "🏇 En cours", "color": "blue" }
+    },
+    "Priorité": {
+      "id": "prio",
+      "type": "select",
+      "select": { "id": "p1", "name": "🔥Haute 🔥", "color": "red" }
+    },
+    "Tag": {
+      "id": "tag",
+      "type": "multi_select",
+      "multi_select": [
+        { "id": "t1", "name": "✒ Travail", "color": "default" },
+        { "id": "t2", "name": "💡 Apprentissage", "color": "yellow" }
+      ]
+    },
+    "Agenda": {
+      "id": "ag",
+      "type": "date",
+      "date": { "start": "2026-04-19", "end": null, "time_zone": null }
+    },
+    "Date d\u2019\u00e9ch\u00e9ance": {
+      "id": "due",
+      "type": "date",
+      "date": { "start": "2026-04-20T09:00:00.000+02:00", "end": null, "time_zone": null }
+    },
+    "Affectation": {
+      "id": "aff",
+      "type": "people",
+      "people": [
+        { "object": "user", "id": "user-123", "name": "Antoine" }
+      ]
+    },
+    "R\u00e9sum\u00e9 g\u00e9n\u00e9r\u00e9 par l\u2019IA": {
+      "id": "ai",
+      "type": "rich_text",
+      "rich_text": [
+        { "type": "text", "text": { "content": "Tâche prioritaire avant vendredi.", "link": null }, "plain_text": "Tâche prioritaire avant vendredi.", "href": null }
+      ]
+    },
+    "Sous-\u00e9l\u00e9ment": {
+      "id": "sub",
+      "type": "relation",
+      "relation": [
+        { "id": "child-uuid-1" },
+        { "id": "child-uuid-2" }
+      ]
+    },
+    "\u00e9l\u00e9ment parent": {
+      "id": "par",
+      "type": "relation",
+      "relation": [
+        { "id": "parent-uuid" }
+      ]
+    }
+  }
+}
