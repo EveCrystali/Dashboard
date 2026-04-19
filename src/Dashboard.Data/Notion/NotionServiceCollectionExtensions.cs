@@ -1,3 +1,4 @@
+using Dashboard.Core.Notion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,9 @@ public static class NotionServiceCollectionExtensions
         })
         .AddHttpMessageHandler<NotionAuthenticationHandler>()
         .AddStandardResilienceHandler();
+
+        services.AddSingleton<INotionPropertyReader, NotionPropertyReader>();
+        services.AddSingleton<NotionService>();
 
         return services;
     }

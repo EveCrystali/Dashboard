@@ -1,0 +1,66 @@
+{
+  "object": "page",
+  "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+  "created_time": "2026-04-18T07:00:00.000Z",
+  "last_edited_time": "2026-04-18T07:15:00.000Z",
+  "archived": false,
+  "properties": {
+    "Titre": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        { "type": "text", "text": { "content": "Sommeil 18/04", "link": null }, "plain_text": "Sommeil 18/04", "href": null }
+      ]
+    },
+    "Date": {
+      "id": "d",
+      "type": "date",
+      "date": { "start": "2026-04-18", "end": null, "time_zone": null }
+    },
+    "Type": {
+      "id": "t",
+      "type": "select",
+      "select": { "id": "t1", "name": "\ud83c\udf19 Sommeil", "color": "blue" }
+    },
+    "Verdict": {
+      "id": "v",
+      "type": "select",
+      "select": { "id": "v1", "name": "\u2705 Normal", "color": "green" }
+    },
+    "Source": {
+      "id": "src",
+      "type": "select",
+      "select": { "id": "s1", "name": "Samsung Watch", "color": "default" }
+    },
+    "HRV ms": { "id": "h1", "type": "number", "number": 58.2 },
+    "FC Repos bpm": { "id": "h2", "type": "number", "number": 55 },
+    "Score Sommeil": { "id": "h3", "type": "number", "number": 82 },
+    "Dur\u00e9e R\u00e9elle": { "id": "h4", "type": "number", "number": 425 },
+    "Profond min": { "id": "h5", "type": "number", "number": 90 },
+    "L\u00e9ger min": { "id": "h6", "type": "number", "number": 245 },
+    "REM min": { "id": "h7", "type": "number", "number": 70 },
+    "\u00c9veil min": { "id": "h8", "type": "number", "number": 20 },
+    "Poids kg": { "id": "h9", "type": "number", "number": null },
+    "\u00c9nergie /100": { "id": "h10", "type": "number", "number": 78 },
+    "SpO2 %": { "id": "h11", "type": "number", "number": 96 },
+    "Stress Bas %": { "id": "h12", "type": "number", "number": 72 },
+    "Stress Haut %": { "id": "h13", "type": "number", "number": 10 },
+    "TA Sys": { "id": "h14", "type": "number", "number": null },
+    "TA Dia": { "id": "h15", "type": "number", "number": null },
+    "Caf\u00e9ine": { "id": "h16", "type": "number", "number": 2 },
+    "Calories Jour": { "id": "h17", "type": "number", "number": null },
+    "Exercice Type": {
+      "id": "ex",
+      "type": "multi_select",
+      "multi_select": []
+    },
+    "Exercice Dur\u00e9e min": { "id": "h18", "type": "number", "number": null },
+    "Exercice Calories": { "id": "h19", "type": "number", "number": null },
+    "Activit\u00e9": {
+      "id": "act",
+      "type": "rich_text",
+      "rich_text": []
+    },
+    "J+ Sevrage": { "id": "h20", "type": "number", "number": 29 }
+  }
+}

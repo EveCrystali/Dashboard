@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Dashboard.Data.Notion;
+namespace Dashboard.Core.Notion;
 
 /// <summary>
 /// R\u00e9ponse d'un <c>POST /v1/databases/{id}/query</c>.

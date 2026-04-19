@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Dashboard.Data.Notion;
+namespace Dashboard.Core.Notion;
 
 /// <summary>
 /// DTO d'une page Notion retourn\u00e9e par un <c>query</c>. Les champs structurels

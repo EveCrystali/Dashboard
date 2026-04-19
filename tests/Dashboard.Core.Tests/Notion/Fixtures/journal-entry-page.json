@@ -1,0 +1,39 @@
+{
+  "object": "page",
+  "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+  "created_time": "2026-04-17T08:30:00.000Z",
+  "last_edited_time": "2026-04-17T09:00:00.000Z",
+  "archived": false,
+  "properties": {
+    "Titre": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        { "type": "text", "text": { "content": "Bascule vers .NET 10", "link": null }, "plain_text": "Bascule vers .NET 10", "href": null }
+      ]
+    },
+    "Date": {
+      "id": "d",
+      "type": "date",
+      "date": { "start": "2026-04-17", "end": null, "time_zone": null }
+    },
+    "Type": {
+      "id": "t",
+      "type": "select",
+      "select": { "id": "t1", "name": "D\u00e9cision", "color": "purple" }
+    },
+    "Domaine": {
+      "id": "dom",
+      "type": "multi_select",
+      "multi_select": [
+        { "id": "d1", "name": "Emploi", "color": "blue" },
+        { "id": "d2", "name": "Transversal", "color": "gray" }
+      ]
+    },
+    "Source": {
+      "id": "src",
+      "type": "select",
+      "select": { "id": "s1", "name": "Manuel", "color": "default" }
+    }
+  }
+}
