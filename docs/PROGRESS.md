@@ -12,8 +12,9 @@
 | 4. Client Notion bas niveau | 2026-04-19 | `feat: client Notion bas niveau` | \u2705 |
 | 5. Mapping Notion | 2026-04-19 | `feat: mapping Notion` | \u2705 |
 | 6. Persistance locale | 2026-04-19 | `feat: persistance locale` | \u2705 |
-| 7. Sync diff\u00e9rentielle Notion | 2026-04-19 | `feat: sync diff\u00e9rentielle Notion` | \u23f3 en cours |
-| 8\u201315 | | | |
+| 7. Sync diff\u00e9rentielle Notion | 2026-04-19 | `feat: sync diff\u00e9rentielle Notion` | \u2705 |
+| 8. Lecture CalendarContract | 2026-04-19 | `feat: lecture CalendarContract` | \u23f3 en cours |
+| 9\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -255,7 +256,46 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 8)
 
-- Lecture du calendrier Android via `CalendarContract` derri\u00e8re l'abstraction `ICalendarContentReader` (ADR-0004).
-- Adapter Android concret + tests sur le POCO.
-- Permission `READ_CALENDAR` runtime via `Permissions.RequestAsync<Permissions.CalendarRead>()`.
-- Logger les valeurs d'enums Notion inconnues rencontr\u00e9es lors des syncs (report\u00e9 du Lot 5, peut \u00eatre group\u00e9 avec un futur lot t\u00e9l\u00e9m\u00e9trie).
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 8 \u2014 Lecture CalendarContract (2026-04-19)
+
+### Livrables
+
+- **Domaine** (`Dashboard.Core/Domain/CalendarEvent.cs`) : record `sealed` (`Id`, `Title`, `Start`, `End`, `IsAllDay`, `CalendarId`, `CalendarDisplayName`). Bornes en `DateTimeOffset` UTC ; l'affichage local est de la responsabilit\u00e9 du widget.
+- **Abstractions Calendar** (`Dashboard.Core/Abstractions/Calendar/`) :
+  - POCOs `RawCalendarRow` (`CalendarId`, `DisplayName`, `AccountName`, `Color`, `Visible`) et `RawEventRow` (`EventId`, `CalendarId`, `Title`, `BeginUtcMillis`, `EndUtcMillis`, `IsAllDay`, `EventTimezone`).
+  - `ICalendarContentReader` : `ReadCalendars()` (`Visible = 1`) + `ReadInstances(from, to)` \u2014 niveau d'abstraction valid\u00e9 par ADR-0004.
+  - `ICalendarPermissionRequester` : `IsGrantedAsync` (appel\u00e9 silencieusement par le service) + `RequestAsync` (d\u00e9clench\u00e9 explicitement par l'UI).
+  - `ICalendarService` : `Task<IReadOnlyList<CalendarEvent>> GetEventsAsync(from, to, ct)`.
+- **Service m\u00e9tier** (`Dashboard.Core/Services/AndroidCalendarService.cs`) : pure C#, consomme `ICalendarContentReader` + `ICalendarPermissionRequester`. Permission refus\u00e9e \u2192 liste vide silencieuse. Mappe `BeginUtcMillis`/`EndUtcMillis` via `DateTimeOffset.FromUnixTimeMilliseconds`. Trie par `Start` ascendant. Joint le `DisplayName` du calendrier via dictionnaire ; `string.Empty` si calendrier inconnu.
+- **Impl\u00e9mentations Android** (`Dashboard.App/Platforms/Android/Services/`) :
+  - `DefaultCalendarContentReader` (`internal sealed`) : ContentResolver \u2192 ICursor avec projections explicites sur `CalendarContract.Calendars` (`_id`, `CALENDAR_DISPLAY_NAME`, `ACCOUNT_NAME`, `CALENDAR_COLOR`, `VISIBLE`) et `CalendarContract.Instances` (`EVENT_ID`, `CALENDAR_ID`, `TITLE`, `BEGIN`, `END`, `ALL_DAY`, `EVENT_TIMEZONE`). URI `Instances` construite via `ContentUris.AppendId(begin)` + `AppendId(end)`.
+  - `AndroidCalendarPermissionRequester` (`internal sealed`) : wrappe `Permissions.CheckStatusAsync<Permissions.CalendarRead>` et `Permissions.RequestAsync<Permissions.CalendarRead>` ; appels marshal\u00e9s sur le main thread via `MainThread.InvokeOnMainThreadAsync`.
+- **DI + permissions** :
+  - `Dashboard.Core/Services/CalendarServiceCollectionExtensions.AddCalendarService` : enregistre `ICalendarService` en `Singleton`.
+  - `MauiProgram.cs` : `AddSingleton<ICalendarContentReader, DefaultCalendarContentReader>` + `AddSingleton<ICalendarPermissionRequester, AndroidCalendarPermissionRequester>` + `AddCalendarService()`.
+  - `AndroidManifest.xml` : `<uses-permission android:name="android.permission.READ_CALENDAR" />`.
+- **Tests** (`Dashboard.Core.Tests/Services/AndroidCalendarServiceTests.cs`, 6 tests, fake `ICalendarContentReader` en m\u00e9moire + `Mock<ICalendarPermissionRequester>` Moq) : permission refus\u00e9e \u2192 liste vide + reader jamais appel\u00e9 ; mapping complet d'une ligne ; tri par `Start` ascendant ; `IsAllDay` propag\u00e9 + titre `null` \u2192 `string.Empty` ; \u00e9v\u00e8nement orphelin (calendrier inconnu) \u2192 `CalendarDisplayName = string.Empty` ; fen\u00eatre temporelle (`from`, `to`) propag\u00e9e au reader.
+
+### Choix assum\u00e9s
+
+1. **Service nomm\u00e9 `AndroidCalendarService` mais plac\u00e9 en `.Core`** (vs `.App`). Coh\u00e9rent avec ROADMAP et ADR-0004 : la sp\u00e9cialisation \u00ab Android \u00bb d\u00e9signe la **source de donn\u00e9es** (ContentResolver via `CalendarContract`), pas la plateforme d'ex\u00e9cution. Le service est pur C#, sans d\u00e9pendance MAUI/Android.
+2. **Service silencieux quand la permission est refus\u00e9e** (vs throw / r\u00e9sultat union). Permet aux widgets de d\u00e9grader leur affichage simplement (\u00ab vide \u00bb \u2261 \u00ab pas accord\u00e9 \u00bb \u2261 \u00ab rien dans la fen\u00eatre \u00bb). Le ViewModel/UI doit appeler `RequestAsync` explicitement (page Settings, premi\u00e8re utilisation) \u2014 le service ne demande jamais lui-m\u00eame.
+3. **Filtrage \u00ab calendriers visibles uniquement \u00bb fait c\u00f4t\u00e9 reader** (`WHERE VISIBLE = 1`). \u00c9vite de remonter et filtrer ensuite des centaines de calendriers cach\u00e9s. Le filtrage \u00ab par toggle utilisateur \u00bb (pr\u00e9f\u00e9rences) viendra au Lot 13 (SettingsPage).
+4. **Fen\u00eatre temporelle param\u00e9tr\u00e9e** (vs m\u00e9thodes `GetTodayAsync`/`GetWeekAsync`). Le ViewModel d\u00e9cide ; \u00e9vite la prolif\u00e9ration de surfaces API. Les helpers \u00ab semaine en cours \u00bb seront du code ViewModel, pas service.
+5. **`CalendarContract.Instances` (et non `Events`)** \u2014 c'est une cons\u00e9quence d'ADR-0004 : on veut la liste expans\u00e9e par occurrence (r\u00e9currents inclus) sur la fen\u00eatre, pas les masters Events.
+6. **Adaptateur `ICursor` non test\u00e9 unitairement** \u2014 conforme ADR-0004 : `DefaultCalendarContentReader` est intentionnellement trivial et serait test\u00e9 en int\u00e9gration sur device si besoin. La logique m\u00e9tier (mapping, tri, jointure DisplayName, fallback) est int\u00e9gralement test\u00e9e via `AndroidCalendarService`.
+7. **Permission marshal\u00e9e sur le main thread** : `Permissions.RequestAsync` n\u00e9cessite l'UI thread sur Android (ouvre une boîte de dialogue syst\u00e8me). `IsGrantedAsync` y est aussi marshal\u00e9 par s\u00e9curit\u00e9 (ne d\u00e9clenche pas de dialog mais reste coh\u00e9rent).
+8. **`Color` brut (`int` ARGB Android)** stock\u00e9 dans `RawCalendarRow` mais **non remont\u00e9** dans `CalendarEvent` \u00e0 ce lot. R\u00e9serve cette donn\u00e9e pour le Lot 11 si la palette daltonien-safe ne suffit pas et que le widget veut r\u00e9utiliser la couleur du calendrier (avec doublage ic\u00f4ne/label).
+
+### V\u00e9rifications
+
+- Build et tests \u00e0 valider via la CI GitHub Actions (le sandbox ne dispose pas du SDK `dotnet`).
+- Aucun secret introduit ; les impls Android touchent `ContentResolver` et `Permissions`, jamais d'identifiant ou token.
+- Aucune r\u00e9f\u00e9rence \u00e0 Google Calendar API : la lecture est 100 % locale (CLAUDE.md).
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 9)
+
+- `CrossDomainInsightsService` (4 r\u00e8gles d\u00e9terministes \u00e0 cadrer avec Antoine) + tests unitaires.
+- Logger les valeurs d'enums Notion inconnues rencontr\u00e9es lors des syncs (report\u00e9 du Lot 5/7, \u00e0 grouper avec un futur lot t\u00e9l\u00e9m\u00e9trie).
