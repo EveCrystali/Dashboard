@@ -5,10 +5,10 @@ namespace Dashboard.App.Platforms.Android.Services;
 
 /// <summary>
 /// Implémentation MAUI de <see cref="ICalendarPermissionRequester"/> :
-/// délègue à <see cref="Permissions.RequestAsync{TPermission}"/> pour
-/// <c>READ_CALENDAR</c>. Les appels MAUI sont marshalés sur le main thread
-/// via <see cref="MainThread.InvokeOnMainThreadAsync(Func{Task{bool}})"/>
-/// car le runtime exige que les demandes de permission y soient effectuées.
+/// délègue à <c>Permissions.RequestAsync&lt;Permissions.CalendarRead&gt;()</c>
+/// pour <c>READ_CALENDAR</c>. Les appels MAUI sont marshalés sur le main
+/// thread via <c>MainThread.InvokeOnMainThreadAsync</c> car le runtime exige
+/// que les demandes de permission y soient effectuées.
 /// </summary>
 internal sealed class AndroidCalendarPermissionRequester : ICalendarPermissionRequester
 {

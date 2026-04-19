@@ -31,7 +31,7 @@ public sealed class AndroidCalendarServiceTests
         var end = new DateTimeOffset(2026, 4, 20, 10, 30, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
         var reader = new FakeReader
         {
-            Calendars = { new RawCalendarRow(42, "Perso", "antoine@example.com", 0xFF1F4E9D, true) },
+            Calendars = { new RawCalendarRow(42, "Perso", "antoine@example.com", unchecked((int)0xFF1F4E9D), true) },
             Instances = { new RawEventRow(7, 42, "Standup", begin, end, false, "Europe/Paris") },
         };
         var sut = BuildGrantedSut(reader);
