@@ -30,9 +30,9 @@ public sealed class NotionServiceTests
         """));
 
         var items = new List<string>();
-        await foreach (var todo in sut.GetTodosAsync())
+        await foreach (var snapshot in sut.GetTodosAsync())
         {
-            items.Add(todo.Title);
+            items.Add(snapshot.Item.Title);
         }
 
         items.Should().Equal("Ma t\u00e2che");

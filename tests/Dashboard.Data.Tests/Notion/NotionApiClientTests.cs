@@ -83,6 +83,56 @@ public sealed class NotionApiClientTests
     }
 
     [Fact]
+    public async Task QueryDataSourceOneBatchAsync_n_inclut_pas_filter_quand_editedOnOrAfter_null()
+    {
+        var fake = new FakeHttpMessageHandler(_ => JsonResponse("""{ "results": [], "next_cursor": null, "has_more": false }"""));
+        var sut = BuildClient(fake);
+
+        _ = await sut.QueryDataSourceOneBatchAsync(DataSourceId, startCursor: null, editedOnOrAfter: null);
+
+        var body = await fake.Requests[0].Content!.ReadAsStringAsync();
+        body.Should().NotContain("filter").And.NotContain("last_edited_time");
+    }
+
+    [Fact]
+    public async Task QueryDataSourceOneBatchAsync_inclut_filter_last_edited_time_on_or_after_quand_fourni()
+    {
+        var fake = new FakeHttpMessageHandler(_ => JsonResponse("""{ "results": [], "next_cursor": null, "has_more": false }"""));
+        var sut = BuildClient(fake);
+        var cutoff = new DateTimeOffset(2026, 4, 18, 9, 30, 15, TimeSpan.FromHours(2));
+
+        _ = await sut.QueryDataSourceOneBatchAsync(DataSourceId, startCursor: null, editedOnOrAfter: cutoff);
+
+        var body = await fake.Requests[0].Content!.ReadAsStringAsync();
+        body.Should().Contain("\"filter\"");
+        body.Should().Contain("\"timestamp\":\"last_edited_time\"");
+        body.Should().Contain("\"on_or_after\":\"2026-04-18T07:30:15.000Z\"");
+    }
+
+    [Fact]
+    public async Task QueryDataSourceAsync_propage_le_filter_a_chaque_batch()
+    {
+        var responses = new Queue<HttpResponseMessage>();
+        responses.Enqueue(JsonResponse("""
+        { "results": [{ "id": "p1", "created_time": "2026-04-01T10:00:00Z", "last_edited_time": "2026-04-01T10:00:00Z", "archived": false, "properties": {} }],
+          "next_cursor": "c1", "has_more": true }
+        """));
+        responses.Enqueue(JsonResponse("""
+        { "results": [{ "id": "p2", "created_time": "2026-04-02T10:00:00Z", "last_edited_time": "2026-04-02T10:00:00Z", "archived": false, "properties": {} }],
+          "next_cursor": null, "has_more": false }
+        """));
+        var fake = new FakeHttpMessageHandler(_ => responses.Dequeue());
+        var sut = BuildClient(fake);
+        var cutoff = new DateTimeOffset(2026, 4, 15, 0, 0, 0, TimeSpan.Zero);
+
+        await foreach (var _ in sut.QueryDataSourceAsync(DataSourceId, editedOnOrAfter: cutoff)) { }
+
+        fake.Requests.Should().HaveCount(2);
+        (await fake.Requests[0].Content!.ReadAsStringAsync()).Should().Contain("\"on_or_after\":\"2026-04-15T00:00:00.000Z\"");
+        (await fake.Requests[1].Content!.ReadAsStringAsync()).Should().Contain("\"on_or_after\":\"2026-04-15T00:00:00.000Z\"");
+    }
+
+    [Fact]
     public async Task QueryDataSourceOneBatchAsync_jette_si_code_http_non_reussi()
     {
         var fake = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)

@@ -37,7 +37,7 @@ public sealed class TodoRepository : ITodoRepository
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
-    public async Task DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default)
+    public async Task<int> DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default)
     {
         var obsolete = await _db.Todos
             .Where(x => !presentIds.Contains(x.Id))
@@ -45,9 +45,10 @@ public sealed class TodoRepository : ITodoRepository
             .ConfigureAwait(false);
         if (obsolete.Count == 0)
         {
-            return;
+            return 0;
         }
         _db.Todos.RemoveRange(obsolete);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return obsolete.Count;
     }
 }

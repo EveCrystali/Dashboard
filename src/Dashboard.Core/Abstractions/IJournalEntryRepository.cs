@@ -8,5 +8,5 @@ public interface IJournalEntryRepository
 
     Task UpsertAsync(JournalEntry item, DateTimeOffset lastEditedTime, CancellationToken ct = default);
 
-    Task DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default);
+    Task<int> DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default);
 }

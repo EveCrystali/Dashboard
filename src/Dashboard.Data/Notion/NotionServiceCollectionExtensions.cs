@@ -31,6 +31,7 @@ public static class NotionServiceCollectionExtensions
 
         services.AddSingleton<INotionPropertyReader, NotionPropertyReader>();
         services.AddSingleton<NotionService>();
+        services.AddSingleton<INotionService>(sp => sp.GetRequiredService<NotionService>());
 
         return services;
     }

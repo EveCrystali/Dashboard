@@ -11,8 +11,9 @@
 | 3. Domaine et abstractions | 2026-04-19 | `feat: domaine et abstractions` | \u2705 |
 | 4. Client Notion bas niveau | 2026-04-19 | `feat: client Notion bas niveau` | \u2705 |
 | 5. Mapping Notion | 2026-04-19 | `feat: mapping Notion` | \u2705 |
-| 6. Persistance locale | 2026-04-19 | `feat: persistance locale` | \u23f3 en cours |
-| 7\u201315 | | | |
+| 6. Persistance locale | 2026-04-19 | `feat: persistance locale` | \u2705 |
+| 7. Sync diff\u00e9rentielle Notion | 2026-04-19 | `feat: sync diff\u00e9rentielle Notion` | \u23f3 en cours |
+| 8\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -213,5 +214,48 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 7)
 
-- G\u00e9n\u00e9rer la migration EF initiale sur poste local.
-- Orchestrateur de sync diff\u00e9rentielle\u00a0: lit les `SyncCursor`, requ\u00eate Notion avec un filtre `last_edited_time >= cursor`, upsert dans les repositories, met \u00e0 jour le curseur. Logger au passage les valeurs d'enums inconnues rencontr\u00e9es.
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 7 \u2014 Sync diff\u00e9rentielle Notion (2026-04-19)
+
+### Livrables
+
+- **Snapshot Notion** (`Dashboard.Core/Notion/NotionSnapshot.cs`) : record `NotionSnapshot<T>(T Item, DateTimeOffset LastEditedTime)` qui transporte le `last_edited_time` aux c\u00f4t\u00e9s de l'item de domaine, n\u00e9cessaire pour `UpsertAsync(item, lastEditedTime)`.
+- **Interface du service Notion** (`Dashboard.Core/Notion/INotionService.cs`) : 4 m\u00e9thodes `IAsyncEnumerable<NotionSnapshot<T>> Get*Async(DateTimeOffset? editedOnOrAfter = null, CancellationToken ct = default)`. `NotionService` (Data) impl\u00e9mente cette interface ; mod\u00e8le test\u00e9 par mocking dans le Lot 7.
+- **Filtre `last_edited_time` server-side** (`Dashboard.Data/Notion/NotionApiClient.cs`) : `QueryDataSourceOneBatchAsync` et `QueryDataSourceAsync` acceptent un `editedOnOrAfter` optionnel, traduit en `filter.timestamp = "last_edited_time"` + `filter.last_edited_time.on_or_after = "yyyy-MM-ddTHH:mm:ss.fffZ"` (UTC). Aucun filtre \u00e9mis quand le param\u00e8tre est `null` (back-compat avec les tests existants).
+- **Rapport de sync** (`Dashboard.Core/Abstractions/SyncReport.cs`) : `SyncSourceResult(DataSourceId, Success, WasFullSync, Upserts, Deletes, ErrorMessage)` avec factories `Ok`/`Failure` ; `SyncReport(IReadOnlyList<SyncSourceResult>)` avec `AllSucceeded`.
+- **Interface orchestrateur** (`Dashboard.Core/Abstractions/ISyncOrchestrator.cs`) : `Task<SyncReport> SyncAllAsync(CancellationToken ct = default)`.
+- **Orchestrateur** (`Dashboard.Data/Sync/SyncOrchestrator.cs`) : g\u00e9n\u00e9rique `SyncOneAsync<T>` param\u00e9tr\u00e9 par fetch + upsert + deleteMissing + getId. Strat\u00e9gie par source :
+  - Pas de curseur ou `LastSyncCompleted` plus ancien que **6 h** \u2192 full sync (sans filtre Notion) puis `DeleteMissingAsync(seenIds)` pour aligner les suppressions ; on \u00e9crit `LastSyncCompleted = now` dans le curseur.
+  - Sinon \u2192 delta sync avec `editedOnOrAfter = cursor.LastEditedSeen` ; pas de `DeleteMissing` ; on conserve l'ancien `LastSyncCompleted`.
+  - `LastEditedSeen` est mis \u00e0 jour vers le max observ\u00e9 lors de l'it\u00e9ration.
+  - Try/catch isol\u00e9 par \u00e9tape (lecture curseur, fetch+upsert, `DeleteMissing`, upsert curseur). Une exception (sauf `OperationCanceledException`) loggue un warning et renvoie `SyncSourceResult.Failure` pour cette source\u00a0; les 3 autres aboutissent.
+- **`DeleteMissingAsync` retourne `Task<int>`** (vs `Task` au Lot 6) sur les 4 repositories\u00a0: la valeur alimente `SyncSourceResult.Deletes`.
+- **DI** : `SyncServiceCollectionExtensions.AddSyncOrchestrator(services)` enregistre `ISyncOrchestrator \u2192 SyncOrchestrator` en `Scoped`. Les d\u00e9pendances (`INotionService`, repos, `ISyncCursorStore`, `IClock`, `IOptions<NotionOptions>`) sont fournies par les extensions des Lots pr\u00e9c\u00e9dents (`AddNotionClient`, `AddPersistence`).
+- **Tests** :
+  - `Dashboard.Data.Tests/Notion/NotionApiClientTests.cs` (3 tests ajout\u00e9s) : pas de `filter` quand `editedOnOrAfter` est `null` ; `filter.last_edited_time.on_or_after` au format ISO UTC quand fourni ; filter propag\u00e9 \u00e0 chaque batch lors de la pagination.
+  - `Dashboard.Data.Tests/Sync/SyncOrchestratorTests.cs` (6 tests) : premier run = full sync sans filtre + `DeleteMissingAsync` appel\u00e9 + curseur \u00e9crit avec les deux dates ; delta dans la fen\u00eatre 6 h (filtre = `LastEditedSeen`, pas de delete, `LastSyncCompleted` inchang\u00e9) ; full sync apr\u00e8s 6 h ; isolation des erreurs (1 source qui jette n'arr\u00eate pas les 3 autres) ; `AllSucceeded == true` quand les 4 r\u00e9ussissent ; \u00e9chec lecture curseur \u2192 `Failure` sans appel \u00e0 Notion. Mocks Moq pour `INotionService`, repos, `ISyncCursorStore`, `IClock` ; helper `AsyncSeq<T>` pour les `IAsyncEnumerable`.
+
+### Choix assum\u00e9s
+
+1. **Filtre server-side `last_edited_time.on_or_after`** (vs filtrage client). Limite la bande passante et les pages \u00e0 mapper. La granularit\u00e9 milliseconde est suffisante (l'API Notion ne descend pas plus bas).
+2. **Full sync toutes les 6 h** pour d\u00e9tecter les suppressions (vs polling d\u00e9di\u00e9 ou webhooks). 6 h est un compromis entre fra\u00eecheur de la d\u00e9tection et co\u00fbt de la full sync sur 4 data sources. Constante `internal static readonly` ajustable. Webhooks Notion non disponibles pour les integrations internes.
+3. **Isolation par source via try/catch dans `SyncOneAsync`** (vs `Task.WhenAll` + `AggregateException`). L'orchestration s\u00e9quentielle (4 sources, faible volum\u00e9trie) simplifie le contr\u00f4le des transactions EF (DbContext scoped, partag\u00e9). Aucun gain attendu d'une parall\u00e9lisation.
+4. **`NotionSnapshot<T>` introduit en Core** (vs ajouter `LastEditedTime` aux records de domaine). Les records m\u00e9tier doivent rester purs (ADR-0005) ; le `last_edited_time` est une information de transport Notion, pas du domaine.
+5. **`DeleteMissingAsync` retourne le nombre supprim\u00e9** : permet d'alimenter `SyncReport.Deletes` sans recompter. R\u00e9trocompatibilit\u00e9 cass\u00e9e en interne uniquement (interfaces et 4 impls + tests mis \u00e0 jour).
+6. **Curseur \u00e9crit m\u00eame quand 0 upsert** : permet de mettre \u00e0 jour `LastSyncCompleted` apr\u00e8s un full sync vide (sinon on relancerait un full sync au prochain run, gaspillage).
+7. **`MockBehavior.Strict` sur `INotionService`** dans les tests pour d\u00e9tecter tout appel non pr\u00e9vu (param\u00e8tres `editedOnOrAfter` mal pass\u00e9s).
+8. **Pas de retry au niveau de l'orchestrateur** : le `NotionApiClient` est d\u00e9j\u00e0 derri\u00e8re `AddStandardResilienceHandler` (Polly). Empiler un retry suppl\u00e9mentaire amplifierait inutilement la charge sur Notion.
+
+### V\u00e9rifications
+
+- Build et tests \u00e0 valider via la CI GitHub Actions (le sandbox ne dispose pas du SDK `dotnet`).
+- Aucun secret litt\u00e9ral introduit ; les tests mockent l'`INotionService` enti\u00e8rement.
+- Le format ISO du filtre (`yyyy-MM-ddTHH:mm:ss.fffZ`) est v\u00e9rifi\u00e9 par assertion sur le body s\u00e9rialis\u00e9.
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 8)
+
+- Lecture du calendrier Android via `CalendarContract` derri\u00e8re l'abstraction `ICalendarContentReader` (ADR-0004).
+- Adapter Android concret + tests sur le POCO.
+- Permission `READ_CALENDAR` runtime via `Permissions.RequestAsync<Permissions.CalendarRead>()`.
+- Logger les valeurs d'enums Notion inconnues rencontr\u00e9es lors des syncs (report\u00e9 du Lot 5, peut \u00eatre group\u00e9 avec un futur lot t\u00e9l\u00e9m\u00e9trie).
