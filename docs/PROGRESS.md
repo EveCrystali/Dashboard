@@ -10,8 +10,9 @@
 | 2. Gestion des secrets | 2026-04-19 | `feat: gestion des secrets` | \u2705 |
 | 3. Domaine et abstractions | 2026-04-19 | `feat: domaine et abstractions` | \u2705 |
 | 4. Client Notion bas niveau | 2026-04-19 | `feat: client Notion bas niveau` | \u2705 |
-| 5. Mapping Notion | | `feat: mapping Notion` | \u23f3 prochain |
-| 6\u201315 | | | |
+| 5. Mapping Notion | 2026-04-19 | `feat: mapping Notion` | \u2705 |
+| 6. Persistance locale | 2026-04-19 | `feat: persistance locale` | \u23f3 en cours |
+| 7\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -170,4 +171,47 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 6)
 
-- EF Core `AppDbContext` + migrations initiales + repositories pour les 4 records + tests SQLite in-memory.
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 6 \u2014 Persistance locale (2026-04-19)
+
+### Livrables
+
+- **ADR-0006** \u2014 P\u00e9rim\u00e8tre de la persistance : cache de Notion (pas source de v\u00e9rit\u00e9) + entit\u00e9s EF s\u00e9par\u00e9es des records + collections en JSON dans des colonnes TEXT.
+- **Interfaces repositories** (`Dashboard.Core/Abstractions/`) : `ITodoRepository`, `IJobApplicationRepository`, `IJournalEntryRepository`, `IHealthReadingRepository`, `ISyncCursorStore` (+ record `SyncCursor`). Contrat unifi\u00e9 : `GetAllAsync`, `UpsertAsync(item, lastEditedTime)`, `DeleteMissingAsync(presentIds)`.
+- **Entit\u00e9s EF plates** (`Dashboard.Data/Persistence/Entities/`) : `TodoEntity`, `JobApplicationEntity`, `JournalEntryEntity`, `HealthReadingEntity`, `SyncCursorEntity`. Collections s\u00e9rialis\u00e9es en `*Json` (string), `DateRange` \u00e9clat\u00e9 en trois colonnes plates (`*Start`, `*End`, `*IsDateTime`).
+- **Configurations Fluent API** (`Dashboard.Data/Persistence/Configurations/`) : une par entit\u00e9, cl\u00e9 primaire `Id`, conversions enums \u2192 `int`, index sur `LastEditedTime` pour les futures queries diff\u00e9rentielles.
+- **`AppDbContext`** (`Dashboard.Data/Persistence/AppDbContext.cs`) : 5 `DbSet<T>`, `ApplyConfigurationsFromAssembly`.
+- **Mappings bi-directionnels statiques** (`Dashboard.Data/Persistence/Mappings/`) : `TodoEntityMapping`, `JobApplicationEntityMapping`, `JournalEntryEntityMapping`, `HealthReadingEntityMapping` avec `ToDomain(entity)` + `CopyInto(item, lastEditedTime, target)`. Helpers internes `JsonListSerializer` (System.Text.Json) et `DateRangeMapping`.
+- **Repositories EF** (`Dashboard.Data/Persistence/Repositories/`) : `TodoRepository`, `JobApplicationRepository`, `JournalEntryRepository`, `HealthReadingRepository`, `SyncCursorStore`. Upsert via `FindAsync` puis `Add` ou mutation + `SaveChanges`. `DeleteMissingAsync` supprime toute ligne absente de la derni\u00e8re sync.
+- **Extension DI** : `PersistenceServiceCollectionExtensions.AddPersistence(services, connectionString)` enregistre `AppDbContext` (SQLite) + les 5 repositories en `Scoped`.
+- **Tests** (`Dashboard.Data.Tests/Persistence/`) :
+  - `SqliteInMemoryFixture` : connexion SQLite `:memory:` maintenue ouverte, `EnsureCreated()`.
+  - `TodoRepositoryTests` (4) : insertion, update sur m\u00eame ID, round-trip complet (tags, deux `DateRange`, listes de strings), `DeleteMissingAsync`, non-op si rien \u00e0 supprimer.
+  - `JobApplicationRepositoryTests` (1) : round-trip des trois dates et des multi-select.
+  - `JournalEntryRepositoryTests` (1) : round-trip.
+  - `HealthReadingRepositoryTests` (1) : round-trip des 25 m\u00e9triques + `ExerciseType`.
+  - `SyncCursorStoreTests` (2) : `GetAsync` null si absent, `UpsertAsync` ins\u00e8re puis met \u00e0 jour.
+  - `PersistenceServiceCollectionExtensionsTests` (1) : v\u00e9rifie que tous les services r\u00e9solvent depuis un scope DI.
+
+### Choix assum\u00e9s
+
+1. **Cache de Notion + curseurs de sync** (vs source de v\u00e9rit\u00e9 autonome). Notion reste la v\u00e9rit\u00e9 ; la base locale est un cache align\u00e9 par sync diff\u00e9rentielle au Lot 7. Motif\u00a0: mono-lecteur, pas de gestion de conflits bidirectionnels. D\u00e9taill\u00e9 dans ADR-0006.
+2. **Entit\u00e9s EF s\u00e9par\u00e9es** (vs mapping direct sur les records). Les records du domaine restent immuables et framework-free (ADR-0005 pr\u00e9serv\u00e9). Coût\u00a0: ~200 lignes de mapping, acceptable pour la clart\u00e9 architecturale.
+3. **Collections en JSON dans des colonnes TEXT** (vs tables jointes normalis\u00e9es). Pour une volum\u00e9trie de quelques centaines de lignes par data source, le filtrage LINQ-to-Objects est suffisant et \u00e9vite 8 tables de jointure. D\u00e9taill\u00e9 dans ADR-0006.
+4. **`DateRange` persist\u00e9 en trois colonnes plates** (vs JSON). Permet de trier/filtrer SQL sur les dates sans d\u00e9s\u00e9rialiser. Convention\u00a0: les deux colonnes `Start`/`End` nulles \u2194 DateRange absent au niveau domaine.
+5. **Pas de migration EF g\u00e9n\u00e9r\u00e9e \u00e0 ce lot**. L'environnement de d\u00e9veloppement cloud ne dispose pas de l'outillage `dotnet ef`. Les tests utilisent `EnsureCreated()` sur SQLite in-memory. `dotnet ef migrations add Initial` \u00e0 g\u00e9n\u00e9rer localement par Antoine avant le Lot 7 (premier write r\u00e9el sur device). D\u00e9tail dans ADR-0006.
+6. **`DeleteMissingAsync` charge la liste obsol\u00e8te en m\u00e9moire** avant `RemoveRange` plut\u00f4t que d'utiliser `ExecuteDeleteAsync`. Motif\u00a0: volum\u00e9trie faible, tracking d\u00e9j\u00e0 d\u00e9sactiv\u00e9 via la logique, et `ExecuteDeleteAsync` ne d\u00e9clenche pas certaines interceptions \u2014 sacrifice mineur.
+7. **Repositories `Scoped`** : coh\u00e9rent avec la lifetime d\u00e9faut d'EF Core. L'orchestrateur de sync (Lot 7) utilisera un scope explicite.
+8. **`SyncCursor` expos\u00e9 en `.Core`** c\u00f4t\u00e9 domaine (pas que c\u00f4t\u00e9 entity). Motif\u00a0: le Lot 7 manipule ce record comme une valeur m\u00e9tier (« j'ai vu Notion jusqu'\u00e0 tel instant »), pas juste comme un DTO persist\u00e9.
+
+### V\u00e9rifications
+
+- Build et tests \u00e0 valider via la CI GitHub Actions (le sandbox ne dispose pas du SDK `dotnet`).
+- Aucun secret litt\u00e9ral introduit.
+- Entit\u00e9s EF priv\u00e9es de r\u00e9f\u00e9rence Notion\u00a0: la couche persistance ignore l'existence de Notion (cloison nette).
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 7)
+
+- G\u00e9n\u00e9rer la migration EF initiale sur poste local.
+- Orchestrateur de sync diff\u00e9rentielle\u00a0: lit les `SyncCursor`, requ\u00eate Notion avec un filtre `last_edited_time >= cursor`, upsert dans les repositories, met \u00e0 jour le curseur. Logger au passage les valeurs d'enums inconnues rencontr\u00e9es.
