@@ -74,5 +74,5 @@ jobs:
       - name: Restore App
         run: dotnet restore src/Dashboard.App/Dashboard.App.csproj
 
-      - name: Build App (Release, net10.0-android)
-        run: dotnet build src/Dashboard.App/Dashboard.App.csproj --configuration Release --framework net10.0-android --no-restore
+      - name: Build App (Debug, net10.0-android)
+        run: dotnet build src/Dashboard.App/Dashboard.App.csproj --configuration Debug --framework net10.0-android --no-restore

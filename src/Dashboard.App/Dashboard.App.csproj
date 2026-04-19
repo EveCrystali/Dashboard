@@ -18,6 +18,8 @@
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
     <TargetPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">36.0</TargetPlatformVersion>
+
+    <UserSecretsId>55f3248f-7fe1-4916-8173-6c8d1b6e5b7a</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
