@@ -1,5 +1,6 @@
 using Dashboard.App.Platforms.Android.Services;
 using Dashboard.Core.Abstractions;
+using Dashboard.Core.Abstractions.Calendar;
 using Dashboard.Core.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,10 @@ public static class MauiProgram
 
 		builder.Services.AddSingleton<ISecureStorageWrapper, SecureStorageWrapper>();
 		builder.Services.AddSingleton<SecureStorageTokenProvider>();
+
+		builder.Services.AddSingleton<ICalendarContentReader, DefaultCalendarContentReader>();
+		builder.Services.AddSingleton<ICalendarPermissionRequester, AndroidCalendarPermissionRequester>();
+		builder.Services.AddCalendarService();
 
 #if DEBUG
 		builder.Services.AddSingleton<ITokenProvider>(sp => new CompositeTokenProvider(
