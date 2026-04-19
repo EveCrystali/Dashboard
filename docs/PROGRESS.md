@@ -8,8 +8,9 @@
 |---|---|---|---|
 | 1. Scaffolding | 2026-04-19 | `chore: scaffolding initial` | \u2705 |
 | 2. Gestion des secrets | 2026-04-19 | `feat: gestion des secrets` | \u2705 |
-| 3. Domaine et abstractions | | `feat: domaine et abstractions` | \u23f3 prochain |
-| 4\u201315 | | | |
+| 3. Domaine et abstractions | 2026-04-19 | `feat: domaine et abstractions` | \u2705 |
+| 4. Client Notion bas niveau | | `feat: client Notion bas niveau` | \u23f3 prochain |
+| 5\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -79,6 +80,29 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 3)
 
-- Mod\u00e8les de domaine (records `sealed`) pour les 4 data sources Notion.
-- Abstractions `IClock`, interfaces de services m\u00e9tier.
-- Tests correspondants.
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 3 \u2014 Domaine et abstractions (2026-04-19)
+
+### Livrables
+
+- `Dashboard.Core/Domain/` \u2014 4 records `sealed` minimaux, un par data source Notion :
+  - `TodoItem` (Id, Title, Due, IsCompleted).
+  - `JobApplication` (Id, Company, Role, Status, AppliedAt).
+  - `JournalEntry` (Id, Date, Title, Content).
+  - `HealthReading` (Id, Date, HeartRateVariability, RestingHeartRate, SleepScore).
+- `Dashboard.Core/Abstractions/IClock.cs` \u2014 interface minimale (`DateTimeOffset Now`).
+- `Dashboard.Core/Services/SystemClock.cs` \u2014 impl\u00e9mentation `DateTimeOffset.Now`.
+- `Dashboard.Core.Tests/Services/SystemClockTests.cs` \u2014 1 test (lecture proche de `DateTimeOffset.Now` \u00e0 5 s pr\u00e8s).
+
+### Choix assum\u00e9s
+
+1. **Pas d'interfaces de services m\u00e9tier \u00e0 ce lot**. Le cahier ROADMAP mentionne "interfaces services" au pluriel ; arbitrage explicite d'Antoine : "limite au n\u00e9cessaire, on fera \u00e9voluer plus tard". Les interfaces (`INotionService`, `ICalendarContentReader`, `ISyncOrchestrator`\u2026) seront ajout\u00e9es au lot o\u00f9 elles sont impl\u00e9ment\u00e9es (Lots 4\u20138).
+2. **Records minimaux**. Champs choisis par \u00e9vidence fonctionnelle (ex. `HeartRateVariability` pour le seuil HRV <53 ms). Ajustements \u00e0 pr\u00e9voir aux Lots 4\u20135 lors du mapping r\u00e9el des data sources Notion.
+3. **`IClock`** minimal : seulement `Now`. Pas de `Today` / `UtcNow` tant qu'aucun service n'en a besoin.
+4. **Pas de tests sur les records de domaine**. Triviaux : \u00e9galit\u00e9 structurelle v\u00e9rifi\u00e9e par le compilateur, pas de logique m\u00e9tier. Seul `SystemClock` est test\u00e9.
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 4)
+
+- `NotionApiClient` (HttpClient typ\u00e9, `HttpMessageHandler` injectable, Polly retry, pagination).
+- Tests sur handler factice.
