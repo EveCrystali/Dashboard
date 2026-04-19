@@ -8,9 +8,9 @@ namespace Dashboard.Data.Notion;
 
 /// <summary>
 /// Orchestre les appels de <see cref="NotionApiClient"/> vers les 4 data sources
-/// métier et applique les mappers Core pour produire des records de domaine.
+/// métier et applique les mappers Core pour produire des <see cref="NotionSnapshot{T}"/>.
 /// </summary>
-public sealed class NotionService
+public sealed class NotionService : INotionService
 {
     private readonly NotionApiClient _client;
     private readonly INotionPropertyReader _reader;
@@ -26,26 +26,35 @@ public sealed class NotionService
         _options = options;
     }
 
-    public IAsyncEnumerable<TodoItem> GetTodosAsync(CancellationToken ct = default) =>
-        QueryAndMap(_options.Value.DataSources.Todos, TodoMapper.Map, ct);
+    public IAsyncEnumerable<NotionSnapshot<TodoItem>> GetTodosAsync(
+        DateTimeOffset? editedOnOrAfter = null,
+        CancellationToken ct = default) =>
+        QueryAndMap(_options.Value.DataSources.Todos, TodoMapper.Map, editedOnOrAfter, ct);
 
-    public IAsyncEnumerable<JobApplication> GetJobApplicationsAsync(CancellationToken ct = default) =>
-        QueryAndMap(_options.Value.DataSources.JobApplications, JobApplicationMapper.Map, ct);
+    public IAsyncEnumerable<NotionSnapshot<JobApplication>> GetJobApplicationsAsync(
+        DateTimeOffset? editedOnOrAfter = null,
+        CancellationToken ct = default) =>
+        QueryAndMap(_options.Value.DataSources.JobApplications, JobApplicationMapper.Map, editedOnOrAfter, ct);
 
-    public IAsyncEnumerable<JournalEntry> GetJournalEntriesAsync(CancellationToken ct = default) =>
-        QueryAndMap(_options.Value.DataSources.Journal, JournalEntryMapper.Map, ct);
+    public IAsyncEnumerable<NotionSnapshot<JournalEntry>> GetJournalEntriesAsync(
+        DateTimeOffset? editedOnOrAfter = null,
+        CancellationToken ct = default) =>
+        QueryAndMap(_options.Value.DataSources.Journal, JournalEntryMapper.Map, editedOnOrAfter, ct);
 
-    public IAsyncEnumerable<HealthReading> GetHealthReadingsAsync(CancellationToken ct = default) =>
-        QueryAndMap(_options.Value.DataSources.Health, HealthReadingMapper.Map, ct);
+    public IAsyncEnumerable<NotionSnapshot<HealthReading>> GetHealthReadingsAsync(
+        DateTimeOffset? editedOnOrAfter = null,
+        CancellationToken ct = default) =>
+        QueryAndMap(_options.Value.DataSources.Health, HealthReadingMapper.Map, editedOnOrAfter, ct);
 
-    private async IAsyncEnumerable<T> QueryAndMap<T>(
+    private async IAsyncEnumerable<NotionSnapshot<T>> QueryAndMap<T>(
         string dataSourceId,
         Func<NotionPage, INotionPropertyReader, T> map,
+        DateTimeOffset? editedOnOrAfter,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var page in _client.QueryDataSourceAsync(dataSourceId, ct).ConfigureAwait(false))
+        await foreach (var page in _client.QueryDataSourceAsync(dataSourceId, editedOnOrAfter, ct).ConfigureAwait(false))
         {
-            yield return map(page, _reader);
+            yield return new NotionSnapshot<T>(map(page, _reader), page.LastEditedTime);
         }
     }
 }

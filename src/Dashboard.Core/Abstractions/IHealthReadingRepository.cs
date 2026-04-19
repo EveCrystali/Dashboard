@@ -8,5 +8,5 @@ public interface IHealthReadingRepository
 
     Task UpsertAsync(HealthReading item, DateTimeOffset lastEditedTime, CancellationToken ct = default);
 
-    Task DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default);
+    Task<int> DeleteMissingAsync(IReadOnlyCollection<string> presentIds, CancellationToken ct = default);
 }

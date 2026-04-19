@@ -6,9 +6,9 @@ using Dashboard.Core.Notion;
 namespace Dashboard.Data.Notion;
 
 /// <summary>
-/// Client bas niveau pour l'API Notion. Ne fait aucune interpr\u00e9tation m\u00e9tier :
-/// le mapping des propri\u00e9t\u00e9s vers le domaine (<c>TodoItem</c>, <c>JobApplication</c>\u2026)
-/// est de la responsabilit\u00e9 du Lot 5.
+/// Client bas niveau pour l'API Notion. Ne fait aucune interprétation métier :
+/// le mapping des propriétés vers le domaine (<c>TodoItem</c>, <c>JobApplication</c>…)
+/// est de la responsabilité du Lot 5.
 /// </summary>
 public sealed class NotionApiClient
 {
@@ -22,16 +22,32 @@ public sealed class NotionApiClient
     }
 
     /// <summary>
-    /// Ex\u00e9cute une requ\u00eate <c>POST databases/{id}/query</c> et retourne un seul batch.
+    /// Exécute une requête <c>POST databases/{id}/query</c> et retourne un seul batch.
+    /// Le filtre <paramref name="editedOnOrAfter"/>, s'il est fourni, est traduit
+    /// en <c>filter.last_edited_time.on_or_after</c> côté Notion (sync différentielle).
     /// </summary>
     public async Task<NotionQueryResponse> QueryDataSourceOneBatchAsync(
         string dataSourceId,
         string? startCursor,
+        DateTimeOffset? editedOnOrAfter = null,
         CancellationToken ct = default)
     {
-        var body = startCursor is null
-            ? new Dictionary<string, object?>()
-            : new Dictionary<string, object?> { ["start_cursor"] = startCursor };
+        var body = new Dictionary<string, object?>();
+        if (startCursor is not null)
+        {
+            body["start_cursor"] = startCursor;
+        }
+        if (editedOnOrAfter is { } cutoff)
+        {
+            body["filter"] = new
+            {
+                timestamp = "last_edited_time",
+                last_edited_time = new
+                {
+                    on_or_after = cutoff.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                },
+            };
+        }
 
         using var response = await _httpClient
             .PostAsJsonAsync($"databases/{dataSourceId}/query", body, JsonOptions, ct)
@@ -47,17 +63,18 @@ public sealed class NotionApiClient
     }
 
     /// <summary>
-    /// It\u00e8re l'int\u00e9gralit\u00e9 des pages d'une data source en encha\u00eenant les batches
-    /// jusqu'\u00e0 <see cref="NotionQueryResponse.HasMore"/> = <c>false</c>.
+    /// Itère l'intégralité des pages d'une data source en enchaînant les batches
+    /// jusqu'à <see cref="NotionQueryResponse.HasMore"/> = <c>false</c>.
     /// </summary>
     public async IAsyncEnumerable<NotionPage> QueryDataSourceAsync(
         string dataSourceId,
+        DateTimeOffset? editedOnOrAfter = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         string? cursor = null;
         while (true)
         {
-            var batch = await QueryDataSourceOneBatchAsync(dataSourceId, cursor, ct).ConfigureAwait(false);
+            var batch = await QueryDataSourceOneBatchAsync(dataSourceId, cursor, editedOnOrAfter, ct).ConfigureAwait(false);
 
             foreach (var page in batch.Results)
             {
