@@ -1,0 +1,78 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+out/
+artifacts/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.swp
+
+# Rider
+_ReSharper*/
+*.DotSettings.user
+
+# MAUI / Xamarin
+*.aab
+*.apk
+*.ipa
+# iOS app bundles : match uniquement sous bin/ pour ne pas casser les noms de projet se terminant par .App
+**/bin/**/*.app/
+.maui/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+coverage*.xml
+coverage*.json
+
+# Secrets & configuration locale
+secrets.json
+appsettings.*.json
+!appsettings.json
+!appsettings.template.json
+.env
+.env.*
+*.pfx
+*.snk
+
+# Bases locales / caches
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+calendars.json
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+
+# Publish
+publish/
+*.[Pp]ublish.xml
+PublishScripts/
+
+# Divers
+*.pyc
+*.log
+*.tmp
