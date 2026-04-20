@@ -1,4 +1,5 @@
 using Dashboard.Core.Abstractions;
+using Dashboard.Core.Abstractions.Insights;
 using Dashboard.Data.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
         services.AddScoped<IHealthReadingRepository, HealthReadingRepository>();
         services.AddScoped<ISyncCursorStore, SyncCursorStore>();
+        services.AddScoped<IInsightRepository, EfInsightRepository>();
         return services;
     }
 }
