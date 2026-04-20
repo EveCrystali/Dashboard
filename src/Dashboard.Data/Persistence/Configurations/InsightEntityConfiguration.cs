@@ -1,6 +1,7 @@
 using Dashboard.Data.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Dashboard.Data.Persistence.Configurations;
 
@@ -17,6 +18,9 @@ public sealed class InsightEntityConfiguration : IEntityTypeConfiguration<Insigh
         builder.Property(x => x.Detail).IsRequired();
         builder.Property(x => x.ActionDeepLink).HasMaxLength(1024);
         builder.Property(x => x.Severity).HasConversion<int>();
+        // SQLite refuse ORDER BY sur DateTimeOffset : conversion binaire
+        // (long ticks + offset) → colonne INTEGER, donc triable nativement.
+        builder.Property(x => x.CreatedAt).HasConversion<DateTimeOffsetToBinaryConverter>();
 
         builder.HasIndex(x => x.SnapshotId);
         builder.HasIndex(x => x.CreatedAt);
