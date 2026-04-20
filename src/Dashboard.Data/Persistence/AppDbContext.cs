@@ -14,6 +14,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<JournalEntryEntity> JournalEntries => Set<JournalEntryEntity>();
     public DbSet<HealthReadingEntity> HealthReadings => Set<HealthReadingEntity>();
     public DbSet<SyncCursorEntity> SyncCursors => Set<SyncCursorEntity>();
+    public DbSet<InsightEntity> Insights => Set<InsightEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

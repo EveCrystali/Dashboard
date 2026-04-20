@@ -13,8 +13,9 @@
 | 5. Mapping Notion | 2026-04-19 | `feat: mapping Notion` | \u2705 |
 | 6. Persistance locale | 2026-04-19 | `feat: persistance locale` | \u2705 |
 | 7. Sync diff\u00e9rentielle Notion | 2026-04-19 | `feat: sync diff\u00e9rentielle Notion` | \u2705 |
-| 8. Lecture CalendarContract | 2026-04-19 | `feat: lecture CalendarContract` | \u23f3 en cours |
-| 9\u201315 | | | |
+| 8. Lecture CalendarContract | 2026-04-19 | `feat: lecture CalendarContract` | \u2705 |
+| 9. Insights d\u00e9terministes | 2026-04-20 | `feat: insights d\u00e9terministes` | \u23f3 en cours |
+| 10\u201315 | | | |
 
 ## Lot 1 \u2014 Scaffolding (2026-04-19)
 
@@ -297,5 +298,57 @@ Termin\u00e9, voir section ci-dessous.
 
 ### Ce qui reste \u00e0 faire au prochain lot (Lot 9)
 
-- `CrossDomainInsightsService` (4 r\u00e8gles d\u00e9terministes \u00e0 cadrer avec Antoine) + tests unitaires.
+Termin\u00e9, voir section ci-dessous.
+
+## Lot 9 \u2014 Insights d\u00e9terministes (2026-04-20)
+
+### Livrables
+
+- **Domaine** (`Dashboard.Core/Domain/`) : record `sealed Insight(Id, RuleId, Severity, Title, Detail, ActionDeepLink?, CreatedAt)` et enum `InsightSeverity { Info, Warning, Critical }`. L'ic\u00f4ne/couleur associ\u00e9es sont d\u00e9finies c\u00f4t\u00e9 UI au Lot 10 (contrainte daltonisme : signal color\u00e9 toujours doubl\u00e9 d'une ic\u00f4ne).
+- **Abstractions** (`Dashboard.Core/Abstractions/Insights/`) :
+  - `IInsightRule` : `string RuleId { get; }` + `Task<IReadOnlyList<Insight>> EvaluateAsync(ct)`. D\u00e9couverte par DI (`IEnumerable<IInsightRule>`), ex\u00e9cut\u00e9e par le service.
+  - `IInsightRepository` : `StoreSnapshotAsync`, `GetLatestAsync`, `GetHistoryAsync(from)`. Snapshots atomiques (batch SnapshotId).
+  - `ICrossDomainInsightsService` : `ComputeAndStoreAsync` + `GetLatestAsync`.
+- **4 r\u00e8gles d\u00e9terministes** (`Dashboard.Core/Services/Insights/Rules/`) :
+  - `TaskDueTodayWithoutCalendarSlotRule` \u2014 \u00e9met **1** Warning si des t\u00e2ches actives sont dues aujourd'hui ET aucun cr\u00e9neau libre \u2265 **30 min** entre **8h-20h** (tz de l'horloge). \u00c9v\u00e9nements `all-day` ignor\u00e9s. Consomme `ITodoRepository`, `ICalendarService`, `IClock`.
+  - `PendingApplicationOver7DaysRule` \u2014 \u00e9met 1 Info par candidature en statut `Suivi` si `FollowUpDate.Start < now` (quand d\u00e9fini), sinon si `ContactDate.Start < now - 7 j`. `ActionDeepLink = OfferUrl`.
+  - `HealthMonitorStaleOver48hRule` \u2014 \u00e9met 1 Critical si la derni\u00e8re `HealthReading` (`Date?.Start ?? CreatedTime`) remonte \u00e0 > 48 h, ou si aucune donn\u00e9e.
+  - `SecondBrainJournalMissingTodayRule` \u2014 \u00e9met 1 Info si aucune `JournalEntry` avec `Date?.Start?.Date == today`.
+- **Service orchestrateur** (`Dashboard.Core/Services/Insights/CrossDomainInsightsService.cs`) : it\u00e8re les r\u00e8gles, agr\u00e8ge, stocke un snapshot unique via `IInsightRepository`. Isolation des erreurs par r\u00e8gle (log + skip), sauf `OperationCanceledException` (remont\u00e9e).
+- **Persistance EF Core** (`Dashboard.Data/Persistence/`) :
+  - `Entities/InsightEntity` + `Configurations/InsightEntityConfiguration` (table `Insights`, index `SnapshotId` et `CreatedAt`, `Severity` stock\u00e9 en `int`).
+  - `Mappings/InsightEntityMapping.ToDomain / ToEntity(snapshotId)`.
+  - `Repositories/EfInsightRepository` : `StoreSnapshotAsync` g\u00e9n\u00e8re un `SnapshotId` commun (Guid N) ; `GetLatestAsync` retourne le snapshot avec le `CreatedAt` max, tri\u00e9 par `Severity` desc puis `Title` ; `GetHistoryAsync(from)` filtre par `CreatedAt >= from`. Snapshot vide = rien persist\u00e9.
+  - `AppDbContext.Insights` ajout\u00e9 ; `AddPersistence()` enregistre `IInsightRepository \u2192 EfInsightRepository` (`Scoped`).
+- **DI Core** (`Dashboard.Core/Services/Insights/InsightsServiceCollectionExtensions.AddInsights`) : enregistre les 4 r\u00e8gles + `ICrossDomainInsightsService` en `Scoped`.
+- **Tests Core** (`tests/Dashboard.Core.Tests/Services/Insights/`, 21 tests) :
+  - `Rules/TaskDueTodayWithoutCalendarSlotRuleTests.cs` (6) : aucune t\u00e2che due \u2192 vide ; cr\u00e9neau libre existant \u2192 vide ; aucun cr\u00e9neau \u2192 Warning agr\u00e9g\u00e9 listant les titres ; `IsAllDay` ignor\u00e9 ; t\u00e2ches `Done`/`Annulee` ignor\u00e9es ; cr\u00e9neaux < 30 min \u2192 insight.
+  - `Rules/PendingApplicationOver7DaysRuleTests.cs` (6) : vide ; `FollowUpDate` d\u00e9pass\u00e9e \u2192 Info + deep link `OfferUrl` ; `ContactDate > 7j` \u2192 Info ; < 7j \u2192 vide ; statut \u2260 `Suivi` \u2192 vide ; `FollowUpDate` future \u2192 vide (m\u00eame avec contact ancien).
+  - `Rules/HealthMonitorStaleOver48hRuleTests.cs` (5) : vide \u2192 Critical ; r\u00e9cent \u2192 vide ; > 48 h \u2192 Critical ; fallback `CreatedTime` ; max entre plusieurs lectures.
+  - `Rules/SecondBrainJournalMissingTodayRuleTests.cs` (4) : vide \u2192 Info ; entr\u00e9e du jour \u2192 vide ; entr\u00e9e d'hier \u2192 Info ; entr\u00e9e sans `Date` \u2192 Info.
+  - `CrossDomainInsightsServiceTests.cs` (4) : agr\u00e9gation + 1 appel `StoreSnapshotAsync` ; isolation d'une r\u00e8gle qui jette ; `OperationCanceledException` remont\u00e9e sans stockage ; `GetLatestAsync` d\u00e9l\u00e8gue.
+- **Tests Data** (`tests/Dashboard.Data.Tests/Persistence/EfInsightRepositoryTests.cs`, 6 tests, `SqliteInMemoryFixture`) : vide \u2192 empty ; snapshot vide non persist\u00e9 ; dernier snapshot isol\u00e9 ; tri `Severity` desc / titre ; `GetHistoryAsync` inclusif ; round-trip int\u00e9gral (tous champs).
+
+### Choix assum\u00e9s
+
+1. **4 r\u00e8gles valid\u00e9es comme point de d\u00e9part, conscientes d'\u00e9voluer** : Antoine signale que ces r\u00e8gles et l'UI sont les deux \u00e9l\u00e9ments les plus amen\u00e9s \u00e0 muter \u00e0 l'usage. Design extensible via `IEnumerable<IInsightRule>` (ajouter une r\u00e8gle = 1 fichier + 1 ligne DI, sans toucher au service). Les constantes (seuils, fen\u00eatres horaires) sont en `public const` pour tuning futur.
+2. **Triggers : les deux (on-demand + post-sync)** \u2014 expos\u00e9 comme une seule m\u00e9thode `ComputeAndStoreAsync`. Le cha\u00eenage apr\u00e8s `SyncAllAsync` sera du c\u00f4t\u00e9 ViewModel (Lot 10), pas coupl\u00e9 dans l'orchestrateur : garde Sync et Insights d\u00e9coupl\u00e9s (sync peut avoir du sens sans insights en arri\u00e8re-plan, et inversement).
+3. **Persistance effective des snapshots (vs recalcul paresseux)** \u2014 pour permettre l'analyse historique (conseils bas\u00e9s sur les insights pr\u00e9c\u00e9dents) sans recharger les donn\u00e9es Notion/Calendar. Snapshot = batch atomique (tous les insights d'une ex\u00e9cution partagent un `SnapshotId`). Un snapshot vide n'est pas persist\u00e9 (\u00e9vite de remplir la table avec des \u00ab rien \u00e0 signaler \u00bb).
+4. **Sortie `Insight(Severity, Title, Detail, ActionDeepLink?)`** \u2014 ic\u00f4ne d\u00e9riv\u00e9e de `Severity` c\u00f4t\u00e9 UI (convention Lot 10). La contrainte daltonisme est prise en compte \u00e0 ce niveau (ic\u00f4ne obligatoire en plus de la couleur).
+5. **R\u00e8gle 1 : cr\u00e9neau libre = aucun gap \u2265 30 min entre 8h-20h** \u2014 valeurs en `public const` (`MinFreeSlotMinutes`, `DayStartHour`, `DayEndHour`) pour ajustement trivial. Impl\u00e9mentation : fusion \u00e0 la vol\u00e9e des intervalles busy tri\u00e9s par `Start` avec un curseur (O(n)) ; \u00e9v\u00e9nements `all-day` exclus pour \u00e9viter les faux positifs (anniversaires, f\u00e9ri\u00e9s).
+6. **R\u00e8gle 2 : priorit\u00e9 \u00e0 `FollowUpDate` sur `ContactDate`** \u2014 si une date de relance est explicitement pos\u00e9e, on l'honore ; sinon on retombe sur \u00ab plus de 7 j depuis le premier contact \u00bb. Une candidature avec `FollowUpDate` futur est silenci\u00e9e m\u00eame si le contact est ancien (intention utilisateur : \u00ab j'ai d\u00e9j\u00e0 pr\u00e9vu de relancer plus tard \u00bb).
+7. **R\u00e8gle 3 : fallback `CreatedTime`** quand `Date?.Start` est absent : sinon une lecture manuelle r\u00e9cente sans champ Date explicite d\u00e9clencherait un faux positif.
+8. **Isolation des erreurs de r\u00e8gle dans le service** (vs `Task.WhenAll` + `AggregateException`) \u2014 coh\u00e9rent avec `SyncOrchestrator` (Lot 7). Une r\u00e8gle casse un repo ? les trois autres passent quand m\u00eame. `OperationCanceledException` reste propag\u00e9e.
+9. **Snapshot vide n'\u00e9crit rien** \u2014 explicite dans le code. Cela signifie que `GetLatestAsync` retournera le snapshot pr\u00e9c\u00e9dent apr\u00e8s un run \u00ab tout va bien \u00bb, ce qui est le comportement attendu pour l'UI (pas de flash \u00ab liste vide \u00bb apr\u00e8s chaque run silencieux).
+10. **`AddInsights()` non c\u00e2bl\u00e9 dans `MauiProgram.cs`** \u2014 coh\u00e9rent avec les Lots 6/7 : le c\u00e2blage DI complet (Persistence + Notion + Sync + Insights) est report\u00e9 au Lot 10 (squelette UI) pour ne pas introduire une `ConnectionString` SQLite sans impl\u00e9mentation de chemin de base de donn\u00e9es.
+
+### V\u00e9rifications
+
+- Build et tests \u00e0 valider via la CI GitHub Actions (le sandbox ne dispose pas du SDK `dotnet`).
+- Aucun secret litt\u00e9ral introduit.
+- Aucune nouvelle d\u00e9pendance NuGet ; r\u00e9utilise EF Core d\u00e9j\u00e0 pr\u00e9sent (Lot 6).
+
+### Ce qui reste \u00e0 faire au prochain lot (Lot 10)
+
+- Squelette UI MAUI (Shell + pages) avec widgets consommant `ICrossDomainInsightsService` + services sync/calendar/notion. C\u00e2blage DI complet dans `MauiProgram.cs` (chemin SQLite local, options Notion).
 - Logger les valeurs d'enums Notion inconnues rencontr\u00e9es lors des syncs (report\u00e9 du Lot 5/7, \u00e0 grouper avec un futur lot t\u00e9l\u00e9m\u00e9trie).
